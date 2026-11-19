@@ -35,7 +35,7 @@ class FeatureAgent:
 
         print(f"[FeatureAgent] Loading tokenizer and model: {model_name}")
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModel.from_pretrained(model_name, dtype=torch.float32)
+        self.model = AutoModel.from_pretrained(model_name, torch_dtype=torch.float32)
         self.model.to(self.device)
         self.model.eval()
 
@@ -84,7 +84,7 @@ class FeatureAgent:
         print("[FeatureAgent] TF-IDF transformation complete")
         return features
 
-    def extract_muril_embeddings(self, texts: List[str], batch_size: int = 16) -> np.ndarray:
+    def extract_muril_embeddings(self, texts: List[str], batch_size: int = 2) -> np.ndarray:
         """
         Extract MuRIL [CLS] embeddings for a list of texts.
 

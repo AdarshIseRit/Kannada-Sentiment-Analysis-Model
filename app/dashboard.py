@@ -1,11 +1,12 @@
+import html
 import os
 import sys
 from io import BytesIO
-from typing import Dict, List, Optional
+from typing import Dict
 
-import numpy as np
 import pandas as pd
 import streamlit as st
+
 
 # Ensure project root is on sys.path so we can import agents.
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -14,365 +15,195 @@ if ROOT_DIR not in sys.path:
 
 from agents.prediction_agent import PredictionAgent  # noqa: E402
 
+
+LOGO_PNG = os.path.join(ROOT_DIR, "assets", "logo.png")
+
 st.set_page_config(
-    page_title="BhavaSpandana AI — Glass Iris Dashboard",
+    page_title="BhavaSpandana · Find the feeling in Kannada text",
     layout="wide",
-    page_icon="🌸",
+    page_icon=LOGO_PNG if os.path.exists(LOGO_PNG) else "💬",
 )
 
-# Emotion metadata with Kannada translations, icons, and theme gradients
-EMOTION_META = {
-    "happy": {
-        "kannada": "ಸಂತೋಷ",
-        "emoji": "😊",
-        "color": "#16A34A",
-        "gradient": "linear-gradient(135deg, #15803D 0%, #166534 100%)",
-        "desc": "ಸಂತೋಷ ಹಾಗೂ ಉತ್ಸಾಹಭರಿತ ಭಾವನೆ (Joy & Contentment)",
-    },
-    "sad": {
-        "kannada": "ದುಃಖ",
-        "emoji": "😢",
-        "color": "#2563EB",
-        "gradient": "linear-gradient(135deg, #1D4ED8 0%, #1E40AF 100%)",
-        "desc": "ದುಃಖ ಅಥವಾ ನೋವಿನ ಭಾವನೆ (Sorrow & Melancholy)",
-    },
-    "anger": {
-        "kannada": "ಕೋಪ",
-        "emoji": "😠",
-        "color": "#DC2626",
-        "gradient": "linear-gradient(135deg, #B91C1C 0%, #991B1B 100%)",
-        "desc": "ಕೋಪ ಹಾಗೂ ಅಸಮಾಧಾನ (Anger & Frustration)",
-    },
-    "fear": {
-        "kannada": "ಭಯ",
-        "emoji": "😨",
-        "color": "#EA580C",
-        "gradient": "linear-gradient(135deg, #C2410C 0%, #9A3412 100%)",
-        "desc": "ಭಯ ಹಾಗೂ ಆತಂಕ (Fear & Anxiety)",
-    },
-    "disgust": {
-        "kannada": "ಅಸಹ್ಯ",
-        "emoji": "🤢",
-        "color": "#9333EA",
-        "gradient": "linear-gradient(135deg, #7E22CE 0%, #6B21A8 100%)",
-        "desc": "ಅಸಹ್ಯ ಅಥವಾ ಅಸಮ್ಮತಿ (Disgust & Aversion)",
-    },
-    "neutral": {
-        "kannada": "ತಟಸ್ಥ",
-        "emoji": "😐",
-        "color": "#4B5563",
-        "gradient": "linear-gradient(135deg, #4B5563 0%, #374151 100%)",
-        "desc": "ಸಾಮಾನ್ಯ ಅಥವಾ ಸಮಚಿತ್ತ ಭಾವನೆ (Neutral & Balanced)",
-    },
-}
 
-# Glass Iris CSS System
+# Page colours come from .streamlit/config.toml (light). This adds the type, the top bar,
+# the hero, the prompt card and the result card.
 CUSTOM_CSS = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anek+Kannada:wght@400;500;600;700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap');
 
-/* Base page theme */
-html, body, [data-testid="stAppViewContainer"] {
-    background-color: #0E0E0E !important;
-    font-family: 'Inter Tight', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
-    color: #FFFFFF !important;
+:root {
+    --ink: #1C1917;
+    --muted: #5F5B57;
+    --line: rgba(0, 0, 0, 0.08);
+    --gold: #F5B700;   /* Karnataka flag yellow, used sparingly as the brand accent */
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    /* Anek Kannada carries matching Kannada + Latin letterforms; DM Sans for reading text */
+    --font: "DM Sans", "Anek Kannada", "Noto Sans Kannada", "Nirmala UI", sans-serif;
+    --font-display: "Anek Kannada", "DM Sans", "Nirmala UI", sans-serif;
 }
 
-[data-testid="stHeader"] {
-    background: transparent !important;
+/* body font everywhere except Streamlit's icon font */
+.stApp, .stApp p, .stApp li, .stApp label, .stApp textarea, .stApp input,
+.stApp button, .stApp h1, .stApp h2, .stApp h3,
+.stApp span:not([data-testid="stIconMaterial"]) { font-family: var(--font); }
+.stApp .brand, .stApp .headline, .stApp .section h2, .stApp .kn,
+.stApp .result-title, .stApp textarea { font-family: var(--font-display); }
+::selection { background: rgba(245, 183, 0, 0.35); }
+
+[data-testid="stHeader"] { background: transparent; }
+/* hero background: soft tint + faint Kannada letters (HERO_LETTERS_SVG), painted on the page
+   container so it sits behind everything and scrolls with the content */
+[data-testid="stMain"] {
+    background:
+        url("data:image/svg+xml;utf8,__LETTERS__") top center / 100% auto no-repeat local,
+        linear-gradient(180deg, #E9EFE6 0px, #F3F1E9 520px, #FAFAF7 900px) top / 100% 900px no-repeat local,
+        #FAFAF7;
+}
+.block-container { max-width: 1120px; padding-top: 1.5rem; padding-bottom: 2rem; }
+
+/* ---------- top bar ---------- */
+.brand {
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 25px; font-weight: 600; color: var(--ink); line-height: 1;
+}
+.brand svg { flex: none; }
+.brand small { font-family: var(--font); font-size: 13px; font-weight: 400; color: var(--muted); padding-top: 4px; }
+.nav-links { display: flex; justify-content: center; gap: 36px; margin: 0; }
+.nav-links a { font-size: 15px; color: #1A1A1A; text-decoration: none; opacity: 0.9; transition: opacity 0.18s ease; }
+.nav-links a:hover { opacity: 0.55; }
+.status { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; color: var(--ink);
+          background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 9px 16px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #22C55E; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18); }
+.st-key-load_model, .st-key-check { width: 100% !important; }
+.st-key-load_model .stButton, .st-key-check .stButton { display: flex; justify-content: flex-end; }
+.st-key-load_model button { border-radius: 10px; padding: 0.55rem 1.3rem; }
+
+/* ---------- hero ---------- */
+.hero { text-align: center; padding: clamp(44px, 8vh, 88px) 0 36px; }
+.badge {
+    display: inline-flex; align-items: center; gap: 12px;
+    background: #fff; border: 1px solid var(--line); border-radius: 999px;
+    padding: 6px 16px 6px 6px; font-size: 13.5px; color: #4A4A4A;
+}
+.badge b { background: var(--ink); color: #fff; border-radius: 999px; padding: 3px 12px; font-weight: 500; }
+.headline {
+    margin: 22px auto 0; font-size: clamp(36px, 5.6vw, 70px); line-height: 1.02;
+    font-weight: 600; letter-spacing: -0.02em; color: var(--ink);
+}
+/* marker-pen highlight on the key word */
+.headline em { font-style: normal; text-decoration: underline; text-decoration-color: rgba(245, 183, 0, 0.6);
+    text-decoration-thickness: 0.14em; text-underline-offset: 0.1em; text-decoration-skip-ink: none; }
+.sub { margin: 18px auto 0; font-size: clamp(15px, 1.3vw, 17px); line-height: 1.65; color: var(--muted); max-width: 60ch; text-wrap: balance; }
+
+/* ---------- prompt card (st.container key="prompt") ---------- */
+.st-key-prompt {
+    background: #fff;
+    border: 1px solid var(--line); border-radius: 20px; padding: 18px 18px 14px;
+    box-shadow: 0 18px 44px -26px rgba(0, 0, 0, 0.28);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.st-key-prompt:focus-within { border-color: rgba(0, 0, 0, 0.3); box-shadow: 0 0 0 4px rgba(245, 183, 0, 0.18), 0 18px 44px -26px rgba(0, 0, 0, 0.28); }
+.st-key-prompt [data-baseweb="textarea"],
+.st-key-prompt [data-baseweb="base-input"] { background: transparent; border: 0; }
+/* Streamlit gives children a fixed pixel width that ignores the card padding */
+.st-key-prompt [data-testid="stElementContainer"] { width: 100% !important; }
+.st-key-prompt textarea { resize: none; background: transparent; font-size: 19px; line-height: 1.55; padding: 2px 4px; }
+.st-key-check button { border-radius: 12px; padding: 0.6rem 1.2rem; white-space: nowrap; }
+
+/* ---------- result panel (right of the input) ---------- */
+.panel {
+    border-radius: 20px; padding: 20px 22px; min-height: 100%;
+    border: 1px solid var(--line); background: rgba(255, 255, 255, 0.75);
+}
+.panel-title { font-size: 0.85rem; color: var(--muted); margin: 0 0 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+    display: inline-flex; align-items: baseline; gap: 6px; padding: 6px 12px; border-radius: 999px;
+    font-size: 14px; font-weight: 500; color: var(--c);
+    background: color-mix(in srgb, var(--c) 10%, white); border: 1px solid color-mix(in srgb, var(--c) 22%, white);
+}
+.chip .kn { font-size: 13px; opacity: 0.8; font-weight: 500; }
+.chip b { color: var(--ink); font-weight: 600; }
+
+.result-card {
+    border-radius: 20px; padding: 20px 22px;
+    background: color-mix(in srgb, var(--c) 9%, white);
+    border: 1px solid color-mix(in srgb, var(--c) 28%, white);
+    box-shadow: 0 18px 44px -28px color-mix(in srgb, var(--c) 70%, black);
+}
+.result-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.85rem; color: var(--muted); }
+.result-top b { color: var(--c); font-size: 0.95rem; }
+.result-title { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 2px 0 10px; }
+.result-title .en { font-size: 2.6rem; font-weight: 700; color: var(--c); letter-spacing: -0.02em; line-height: 1.1; }
+.result-title .kn { font-size: 1.5rem; font-weight: 500; color: color-mix(in srgb, var(--c) 75%, black); }
+.meter { height: 8px; border-radius: 99px; background: color-mix(in srgb, var(--c) 15%, white); overflow: hidden; }
+.meter span { display: block; height: 100%; border-radius: 99px; background: var(--c); }
+.breakdown { margin: 16px 0 12px; display: grid; gap: 7px; }
+.row { display: grid; grid-template-columns: 70px 1fr 42px; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+.row .bar { height: 6px; border-radius: 99px; background: rgba(0, 0, 0, 0.06); overflow: hidden; }
+.row .bar span { display: block; height: 100%; border-radius: 99px; background: var(--c); }
+.row .pct { text-align: right; font-variant-numeric: tabular-nums; }
+.result-read { font-size: 0.82rem; color: var(--muted); word-break: break-word; border-top: 1px solid color-mix(in srgb, var(--c) 20%, white); padding-top: 10px; }
+.result-read .kn { color: var(--ink); }
+
+/* ---------- lower sections ---------- */
+.section { scroll-margin-top: 80px; padding-top: 80px; }
+.section .eyebrow { font-size: 13px; font-weight: 600; color: #A07800; letter-spacing: 0.04em; text-transform: uppercase; margin: 0; }
+.section h2 { font-size: clamp(28px, 3vw, 38px); font-weight: 600; letter-spacing: -0.02em; margin: 6px 0 8px; padding: 0; line-height: 1.1; }
+.section p.lead { color: var(--muted); margin: 0 0 20px; max-width: 64ch; line-height: 1.65; }
+.section p.lead code { color: var(--ink); }
+
+.footer {
+    margin-top: 80px; padding-top: 20px; border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13px; color: var(--muted);
 }
 
-.main .block-container {
-    padding-top: 1rem !important;
-    padding-bottom: 3rem !important;
-    max-width: 1040px !important;
-}
+/* gentle one-time entrance for the hero text only */
+@keyframes rise { from { opacity: 0; transform: translate3d(0, 14px, 0); } to { opacity: 1; transform: none; } }
+.rise { animation: rise 0.9s var(--ease) both; }
+.rise-1 { animation-delay: 80ms; }
+.rise-2 { animation-delay: 160ms; }
+@media (prefers-reduced-motion: reduce) { .rise { animation: none; } }
 
-/* Electric blue top ambient glow */
-.top-ambient-glow {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 380px;
-    background: radial-gradient(circle at 50% -10%, rgba(64,110,255,0.48) 0%, rgba(124,72,240,0.22) 40%, rgba(14,14,14,0) 75%);
-    pointer-events: none;
-    z-index: 0;
+@media (max-width: 900px) {
+    .nav-links { gap: 20px; }
+    .brand small { display: none; }
 }
-
-/* Glass Shell Top Bar */
-.glass-top-bar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.75rem 1.25rem;
-    background: rgba(21, 21, 21, 0.75);
-    backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 255, 255, 0.07);
-    border-radius: 14px;
-    margin-bottom: 1.25rem;
-}
-
-.breadcrumb-nav {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    font-size: 0.88rem;
-    color: #8C8C8C;
-}
-
-.breadcrumb-active {
-    color: #FFFFFF;
-    font-weight: 600;
-}
-
-.status-pill {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.85rem;
-    background: rgba(47, 107, 255, 0.12);
-    border: 1px solid rgba(47, 107, 255, 0.35);
-    border-radius: 9999px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    color: #E0E7FF;
-}
-
-.status-dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #2F6BFF;
-    box-shadow: 0 0 8px #2F6BFF;
-}
-
-/* Glass Iris Orb */
-.orb-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin: 1.2rem auto 0.8rem auto;
-    position: relative;
-}
-
-.living-orb {
-    width: 104px;
-    height: 104px;
-    border-radius: 50%;
-    position: relative;
-    background: radial-gradient(circle at 36% 34%, rgba(255, 255, 255, 0.6) 0%, rgba(47, 107, 255, 0.85) 30%, rgba(90, 76, 245, 0.95) 58%, rgba(14, 14, 14, 0.98) 90%);
-    box-shadow: 
-        0 0 45px rgba(47, 107, 255, 0.55),
-        0 0 95px rgba(124, 72, 240, 0.35),
-        inset 0 0 25px rgba(255, 255, 255, 0.45),
-        inset -8px -8px 22px rgba(0, 0, 0, 0.85);
-    animation: orbPulse 4s ease-in-out infinite alternate;
-}
-
-.living-orb::before {
-    content: '';
-    position: absolute;
-    top: 14%;
-    left: 20%;
-    width: 32%;
-    height: 22%;
-    border-radius: 50%;
-    background: radial-gradient(ellipse at center, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 75%);
-    transform: rotate(-25deg);
-}
-
-.orb-ring {
-    position: absolute;
-    width: 136px;
-    height: 136px;
-    border-radius: 50%;
-    border: 1px dashed rgba(64, 110, 255, 0.28);
-    animation: ringSpin 20s linear infinite;
-}
-
-@keyframes orbPulse {
-    0% {
-        transform: scale(0.96) translateY(0px);
-        box-shadow: 0 0 35px rgba(47, 107, 255, 0.45), 0 0 75px rgba(124, 72, 240, 0.25);
+@media (max-width: 640px) {
+    .nav-links { display: none; }
+    .hero { padding-top: 28px; }
+    .st-key-prompt textarea { font-size: 17px; } /* stay >= 16px or iOS zooms on focus */
+    /* letters get too small and crowded on phones; keep only the tint */
+    [data-testid="stMain"] {
+        background: linear-gradient(180deg, #E9EFE6 0px, #FAFAF7 700px) top / 100% 700px no-repeat local, #FAFAF7;
     }
-    100% {
-        transform: scale(1.02) translateY(-6px);
-        box-shadow: 0 0 60px rgba(47, 107, 255, 0.75), 0 0 115px rgba(124, 72, 240, 0.45);
-    }
-}
-
-@keyframes ringSpin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* Hero Typography */
-.hero-greeting {
-    text-align: center;
-    font-size: 0.95rem;
-    color: #8C8C8C;
-    margin-top: 0.6rem;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-}
-
-.hero-headline {
-    text-align: center;
-    font-size: 1.85rem;
-    font-weight: 600;
-    letter-spacing: -0.01em;
-    color: #FFFFFF;
-    margin-top: 0.2rem;
-    margin-bottom: 0.35rem;
-}
-
-.hero-subline {
-    text-align: center;
-    font-size: 0.96rem;
-    color: #8C8C8C;
-    margin-bottom: 1.5rem;
-}
-
-/* Glass Iris Composer */
-.composer-wrapper {
-    background: #151515;
-    border-radius: 16px;
-    padding: 1.25rem 1.5rem 1rem 1.5rem;
-    border: 1.2px solid transparent;
-    background-image: linear-gradient(#151515, #151515), linear-gradient(135deg, #2F6BFF, #6366F1, #5A4CF5, #2F6BFF);
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
-    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
-    margin-bottom: 1.5rem;
-}
-
-/* Streamlit input styling inside composer */
-[data-testid="stTextArea"] textarea {
-    background: transparent !important;
-    color: #FFFFFF !important;
-    border: none !important;
-    font-size: 1rem !important;
-    font-family: inherit !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-}
-
-[data-testid="stTextArea"] textarea:focus {
-    outline: none !important;
-}
-
-/* Quick Action Cards */
-.quick-cards-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 1rem;
-    margin-top: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-.quick-card {
-    background: #151515;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 14px;
-    padding: 1.15rem 1.25rem;
-    transition: all 0.2s ease;
-}
-
-.quick-card:hover {
-    border-color: rgba(47, 107, 255, 0.4);
-    background: #1A1A1A;
-    transform: translateY(-2px);
-}
-
-.quick-card-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 34px;
-    height: 34px;
-    border-radius: 9px;
-    margin-bottom: 0.75rem;
-    font-size: 1rem;
-}
-
-.icon-blue { background: rgba(47, 107, 255, 0.16); color: #2F6BFF; }
-.icon-violet { background: rgba(90, 76, 245, 0.16); color: #5A4CF5; }
-.icon-indigo { background: rgba(99, 102, 241, 0.16); color: #818CF8; }
-
-.quick-card-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #FFFFFF;
-    margin-bottom: 0.2rem;
-}
-
-.quick-card-desc {
-    font-size: 0.82rem;
-    color: #8C8C8C;
-    line-height: 1.35;
-}
-
-/* Glass Sentiment Output Card */
-.glass-sentiment-card {
-    border-radius: 16px;
-    padding: 1.4rem 1.6rem;
-    margin-top: 1rem;
-    margin-bottom: 1.25rem;
-    color: #FFFFFF;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    box-shadow: 0 16px 45px rgba(0, 0, 0, 0.5);
-}
-
-.badge-tag {
-    display: inline-block;
-    padding: 0.2rem 0.65rem;
-    border-radius: 9999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    background: rgba(255, 255, 255, 0.16);
-    backdrop-filter: blur(6px);
-    margin-bottom: 0.5rem;
-}
-
-/* Custom button accents */
-button[kind="primary"] {
-    background: linear-gradient(135deg, #2F6BFF 0%, #5A4CF5 100%) !important;
-    border: none !important;
-    color: #FFFFFF !important;
-    font-weight: 600 !important;
-    border-radius: 10px !important;
-}
-
-button[kind="secondary"] {
-    background: #1D1D1D !important;
-    color: #E0E7FF !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 10px !important;
 }
 </style>
-<div class="top-ambient-glow"></div>
 """
 
-st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
+# Speech bubble with a pulse line: ಭಾವ (feeling) + ಸ್ಪಂದನ (pulse). Same mark as assets/logo.png.
+LOGO_SVG = (
+    '<svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true">'
+    '<rect x="2" y="3" width="28" height="22" rx="7" fill="#1C1917"/>'
+    '<path d="M7 23v7l7-6z" fill="#1C1917"/>'
+    '<path d="M7 14h4l2-5 3 10 2.5-7 1.5 2h5" fill="none" stroke="#F5B700" stroke-width="2.4" '
+    'stroke-linecap="round" stroke-linejoin="round"/></svg>'
+)
 
+# Large faint letters kept to the left/right edges so they never sit behind the headline.
+HERO_LETTERS = [
+    ("ಅ", 90, 300, 200), ("ಭಾ", 1180, 260, 170), ("ಸ್ಪಂ", 110, 760, 150), ("ದ", 1200, 720, 210),
+    ("ಕ", 20, 540, 130),
+]
+HERO_LETTERS_SVG = (
+    "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 900'>"
+    "<g fill='%231C1917' fill-opacity='0.05' font-family='Noto Sans Kannada, Nirmala UI, Tunga, sans-serif' font-weight='600'>"
+    + "".join(f"<text x='{x}' y='{y}' font-size='{size}'>{ch}</text>" for ch, x, y, size in HERO_LETTERS)
+    + "</g></svg>"
+)
 
-@st.cache_resource(show_spinner=False)
-def get_prediction_agent() -> Optional[PredictionAgent]:
-    """
-    Load and cache the trained PredictionAgent.
-    """
-    model_dir = os.path.join(ROOT_DIR, "models")
-    if not os.path.exists(model_dir):
-        return None
-    try:
-        return PredictionAgent(model_dir=model_dir)
-    except Exception as exc:
-        print(f"[Dashboard] Error loading model: {exc}")
-        return None
+if "prediction_agent" not in st.session_state:
+    st.session_state["prediction_agent"] = None
 
 
 def get_sentiment_color(sentiment: str) -> str:
@@ -380,357 +211,349 @@ def get_sentiment_color(sentiment: str) -> str:
     Map sentiment labels to brand colors.
     """
     mapping: Dict[str, str] = {
-        "happy": "#16A34A",
-        "sad": "#2563EB",
-        "angry": "#DC2626",
-        "anger": "#DC2626",
-        "fear": "#EA580C",
-        "disgust": "#7C3AED",
-        "neutral": "#6B7280",
+        "happy": "#16A34A",   # green
+        "sad": "#2563EB",     # blue
+        "angry": "#DC2626",   # red
+        "anger": "#DC2626",   # red
+        "fear": "#EA580C",    # orange
+        "disgust": "#7C3AED", # purple
+        "neutral": "#6B7280", # gray
     }
-    return mapping.get(str(sentiment).lower(), "#4B5563")
+    return mapping.get(sentiment.lower(), "#4B5563")
 
 
-def render_shell_header(agent: Optional[PredictionAgent]) -> None:
+# Kannada name for each feeling, shown next to the English label.
+KANNADA_NAMES: Dict[str, str] = {
+    "happy": "ಸಂತೋಷ",
+    "sad": "ದುಃಖ",
+    "anger": "ಕೋಪ",
+    "angry": "ಕೋಪ",
+    "fear": "ಭಯ",
+    "disgust": "ಅಸಹ್ಯ",
+    "neutral": "ತಟಸ್ಥ",
+}
+FEELINGS = ["happy", "sad", "anger", "fear", "disgust", "neutral"]
+
+
+def feeling_class(label: str) -> str:
     """
-    Render top glass shell bar with breadcrumbs and live AI status pill.
+    CSS class that sets --c for a feeling. Streamlit strips custom properties from inline
+    style attributes, so colours are passed through these classes instead.
     """
-    status_label = "AI Model Running" if agent is not None else "Model Initializing"
-    device_label = f"Device: {agent.device}" if agent is not None else "Device: CPU"
+    key = str(label).lower()
+    return f"f-{key}" if key in KANNADA_NAMES else "f-other"
 
+
+FEELING_CSS = "<style>" + "".join(
+    f".f-{key} {{ --c: {get_sentiment_color(key)}; }}" for key in KANNADA_NAMES
+) + f".f-other {{ --c: {get_sentiment_color('')}; }}</style>"
+
+st.markdown(CUSTOM_CSS.replace("__LETTERS__", HERO_LETTERS_SVG) + FEELING_CSS, unsafe_allow_html=True)
+
+
+def feeling_chip(label: str, extra: str = "") -> str:
+    """
+    Small coloured pill: English name, Kannada name and optional extra text (e.g. a count).
+    """
+    kn = KANNADA_NAMES.get(label.lower(), "")
+    return (
+        f"<span class='chip {feeling_class(label)}'>"
+        f"{html.escape(label.title())}<span class='kn'>{kn}</span>{extra}</span>"
+    )
+
+
+def nav_section() -> None:
+    """
+    Render the top bar: brand, section links and the model loader.
+    """
+    col_brand, col_links, col_cta = st.columns([1.2, 1.6, 1.2], vertical_alignment="center")
+    col_brand.markdown(
+        f"<div class='brand'>{LOGO_SVG}ಭಾವಸ್ಪಂದನ <small>BhavaSpandana</small></div>",
+        unsafe_allow_html=True,
+    )
+    col_links.markdown(
+        "<nav class='nav-links'><a href='#try'>Try it</a><a href='#excel'>Excel file</a>"
+        "<a href='#how'>How it works</a></nav>",
+        unsafe_allow_html=True,
+    )
+
+    load_error = None
+    with col_cta:
+        slot = st.empty()  # holds the button, swapped for a status pill once loaded
+        if st.session_state["prediction_agent"] is None:
+            if slot.button("Load model", key="load_model", type="primary"):
+                try:
+                    with st.spinner("Loading, this can take a minute the first time..."):
+                        st.session_state["prediction_agent"] = PredictionAgent(model_dir="models")
+                except Exception as exc:  # pragma: no cover - UI feedback
+                    load_error = exc
+        if st.session_state["prediction_agent"] is not None:
+            slot.markdown(
+                "<div style='text-align:right'><span class='status'><span class='dot'></span>Model ready</span></div>",
+                unsafe_allow_html=True,
+            )
+
+    if load_error is not None:
+        st.error(f"Couldn't load the model: {load_error}")
+
+
+def hero_section() -> None:
+    """
+    Render the hero: badge, headline and short description.
+    """
     st.markdown(
-        f"""
-        <div class="glass-top-bar">
-            <div class="breadcrumb-nav">
-                <span>🌸 Home</span>
-                <span>›</span>
-                <span class="breadcrumb-active">BhavaSpandana AI (ಭಾವಸ್ಪಂದನ)</span>
-            </div>
-            <div class="status-pill">
-                <div class="status-dot"></div>
-                <span>{status_label}</span>
-                <span style="opacity:0.5;">|</span>
-                <span>{device_label}</span>
-                <span style="opacity:0.5;">|</span>
-                <span>96.52% Acc</span>
-            </div>
-        </div>
-        """,
+        "<div class='hero' id='try'>"
+        "<div class='badge rise'><b>96.5%</b>accurate on sentences it had never seen</div>"
+        "<h1 class='headline rise rise-1'>Find the <em>feeling</em> behind<br>every Kannada sentence.</h1>"
+        "<p class='sub rise rise-2'>Write something in Kannada and BhavaSpandana tells you whether "
+        "it sounds happy, sad, angry, afraid, disgusted or neutral. One sentence here, or a whole "
+        "spreadsheet further down.</p>"
+        "</div>",
         unsafe_allow_html=True,
     )
 
 
-def render_hero_orb() -> None:
+def model_required() -> bool:
     """
-    Render living glass iris orb with specular refraction and glow.
+    Show a hint and return False if models are not loaded yet.
     """
-    st.markdown(
-        """
-        <div class="orb-container">
-            <div class="orb-ring"></div>
-            <div class="living-orb"></div>
-        </div>
-        <div class="hero-greeting">ನಮಸ್ಕಾರ · KANNADA EMOTION INTELLIGENCE</div>
-        <div class="hero-headline">WHAT'S ON YOUR MIND?</div>
-        <div class="hero-subline">Decode contextual emotions and sentiments in Kannada text using BhavaSpandana AI.</div>
-        """,
-        unsafe_allow_html=True,
+    if st.session_state["prediction_agent"] is None:
+        st.info("Load the model first, using the button at the top right.")
+        return False
+    return True
+
+
+def result_card_html(result: Dict[str, object]) -> str:
+    """
+    Coloured result card: feeling in English + Kannada, confidence meter, score per feeling.
+    """
+    sentiment = str(result["sentiment"])
+    confidence = min(max(float(result["confidence"]), 0.0), 100.0)
+    cleaned = str(result["cleaned"])
+    preview = cleaned[:120] + ("..." if len(cleaned) > 120 else "")
+    probabilities = result.get("probabilities") or {}
+
+    rows = "".join(
+        f"<div class='row {feeling_class(label)}'>"
+        f"<span>{html.escape(str(label).title())}</span>"
+        f"<span class='bar'><span style='width:{min(max(float(p), 0.0), 100.0):.1f}%'></span></span>"
+        f"<span class='pct'>{float(p):.0f}%</span></div>"
+        for label, p in sorted(probabilities.items(), key=lambda kv: -float(kv[1]))
+    )
+    breakdown = f"<div class='breakdown'>{rows}</div>" if rows else "<div style='height:14px'></div>"
+
+    return (
+        f"<div class='result-card {feeling_class(sentiment)}'>"
+        f"<div class='result-top'><span>This sounds</span><b>{confidence:.0f}% sure</b></div>"
+        f"<div class='result-title'><span class='en'>{html.escape(sentiment.title())}</span>"
+        f"<span class='kn'>{KANNADA_NAMES.get(sentiment.lower(), '')}</span></div>"
+        f"<div class='meter'><span style='width:{confidence:.1f}%'></span></div>"
+        f"{breakdown}"
+        f"<div class='result-read'>What the model read: <span class='kn'>{html.escape(preview)}</span></div>"
+        "</div>"
     )
 
 
-def render_quick_action_cards() -> None:
+def single_prediction_section() -> None:
     """
-    Render three Glass Iris quick-action feature cards.
+    Render the single text prediction interface: prompt card on the left, result on the right.
     """
-    st.markdown(
-        """
-        <div class="quick-cards-grid">
-            <div class="quick-card">
-                <div class="quick-card-icon icon-blue">⚡</div>
-                <div class="quick-card-title">Real-Time Inference</div>
-                <div class="quick-card-desc">Type or paste Kannada text for instant soft-voting emotion classification.</div>
-            </div>
-            <div class="quick-card">
-                <div class="quick-card-icon icon-violet">📂</div>
-                <div class="quick-card-title">Batch Excel Scoring</div>
-                <div class="quick-card-desc">Upload spreadsheets with kannada_text to bulk score hundreds of sentences.</div>
-            </div>
-            <div class="quick-card">
-                <div class="quick-card-icon icon-indigo">📊</div>
-                <div class="quick-card-title">Model Diagnostics</div>
-                <div class="quick-card-desc">Inspect held-out confusion matrix heatmap and multi-class F1 benchmarks.</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
+    col_input, col_result = st.columns([1.35, 1], gap="large")
 
+    with col_input, st.container(key="prompt"):
+        input_text = st.text_area(
+            "Your sentence",
+            label_visibility="collapsed",
+            height=170,
+            placeholder="ಇವತ್ತು ತುಂಬಾ ಖುಷಿಯಾಗಿದೆ...",
+        )
+        col_hint, col_btn = st.columns([2, 1], vertical_alignment="center")
+        col_hint.caption("Kannada script only. English letters are skipped.")
+        with col_btn:
+            predict_clicked = st.button(
+                "Check", key="check", type="primary", icon=":material/arrow_forward:"
+            )
 
-def render_composer_section(agent: Optional[PredictionAgent]) -> None:
-    """
-    Render the central Glass Iris composer and real-time prediction output.
-    """
-    # Sample shortcut chips
-    samples = [
-        ("😊 ಸಂತೋಷ", "ನಾನು ಇಂದು ತುಂಬಾ ಸಂತೋಷವಾಗಿದ್ದೇನೆ"),
-        ("😢 ದುಃಖ", "ನನಗೆ ತುಂಬಾ ದುಃಖವಾಗಿದೆ ಮತ್ತು ಬೇಸರವಾಗಿದೆ"),
-        ("😠 ಕೋಪ", "ಇದು ನನಗೆ ತುಂಬಾ ಕೋಪ ತರಿಸುತ್ತದೆ"),
-        ("😨 ಭಯ", "ಅದು ತುಂಬಾ ಭಯಂಕರವಾಗಿದೆ ನನಗೆ ಭಯವಾಗ್ತಿದೆ"),
-        ("🤢 ಅಸಹ್ಯ", "ಇದು ತುಂಬಾ ಅಸಹ್ಯವಾಗಿದೆ"),
-        ("😐 ತಟಸ್ಥ", "ಇಂದು ಹವಾಮಾನ ಸಾಮಾನ್ಯವಾಗಿದೆ ಮತ್ತು ಶಾಂತವಾಗಿದೆ"),
-    ]
+    with col_result:
+        if not predict_clicked:
+            chips = "".join(feeling_chip(f) for f in FEELINGS)
+            st.markdown(
+                "<div class='panel'><p class='panel-title'>Your result will show up here. "
+                f"It can spot six feelings:</p><div class='chips'>{chips}</div></div>",
+                unsafe_allow_html=True,
+            )
+            return
 
-    col_chips = st.columns(6)
-    for idx, (label, sample_text) in enumerate(samples):
-        with col_chips[idx]:
-            if st.button(label, key=f"chip_{idx}", use_container_width=True):
-                st.session_state["composer_input"] = sample_text
-
-    current_text = st.session_state.get("composer_input", "ನಾನು ಇಂದು ತುಂಬಾ ಸಂತೋಷವಾಗಿದ್ದೇನೆ")
-
-    # The 114u Hairline Gradient Composer Card
-    st.markdown("<div class='composer-wrapper'>", unsafe_allow_html=True)
-    input_text = st.text_area(
-        "Ask Anything in Kannada...",
-        value=current_text,
-        height=95,
-        placeholder="Type or paste a Kannada sentence to analyze emotion (e.g. ನಾನು ತುಂಬಾ ಸಂತೋಷವಾಗಿದ್ದೇನೆ)...",
-        label_visibility="collapsed",
-    )
-
-    col_btn_left, col_btn_right = st.columns([3, 1])
-    with col_btn_left:
-        st.caption("⚡ Model: **BhavaSpandana AI** (MuRIL BERT 65% + Char TF-IDF 35% Soft Voting)")
-    with col_btn_right:
-        predict_clicked = st.button("Predict Emotion →", type="primary", use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-    # Perform inference and display result
-    if predict_clicked or ("composer_input" in st.session_state and input_text):
         if not input_text or not input_text.strip():
-            st.warning("Please enter some Kannada text before predicting.")
-        elif agent is None:
-            st.error("Model artifacts not found in `models/`. Please run `python train.py` first.")
-        else:
-            try:
+            st.warning("Type a sentence first.")
+            return
+        if not model_required():
+            return
+
+        try:
+            agent: PredictionAgent = st.session_state["prediction_agent"]
+            with st.spinner("Reading..."):
                 results = agent.predict_texts([input_text])
-                if results:
-                    res = results[0]
-                    sentiment = str(res["sentiment"]).lower()
-                    confidence = float(res["confidence"])
-                    cleaned = str(res["cleaned"])
-                    probs = res.get("probabilities", {})
-
-                    meta = EMOTION_META.get(
-                        sentiment,
-                        {
-                            "kannada": sentiment.title(),
-                            "emoji": "🌸",
-                            "color": "#2F6BFF",
-                            "gradient": "linear-gradient(135deg, #2F6BFF 0%, #151515 100%)",
-                            "desc": "Emotion",
-                        },
-                    )
-
-                    st.markdown(
-                        f"""
-                        <div class="glass-sentiment-card" style="background: {meta['gradient']};">
-                            <span class="badge-tag">Predicted Sentiment</span>
-                            <div style="font-size: 2rem; font-weight: 700; margin-bottom: 0.2rem;">
-                                {meta['emoji']} {meta['kannada']} <span style="font-size: 1.2rem; opacity: 0.85;">({sentiment.upper()})</span>
-                            </div>
-                            <div style="font-size: 0.95rem; opacity: 0.9; margin-bottom: 0.5rem;">{meta['desc']}</div>
-                            <div style="font-size: 0.85rem; opacity: 0.8;">
-                                <strong>Cleaned Text:</strong> {cleaned if cleaned else "—"}
-                            </div>
-                        </div>
-                        """,
-                        unsafe_allow_html=True,
-                    )
-                    st.write(f"**Confidence**: `{confidence:.2f}%`")
-                    st.progress(min(max(confidence / 100.0, 0.0), 1.0))
-
-                    # Full emotion distribution breakdown
-                    if probs:
-                        with st.expander("📊 View All 6 Emotion Probabilities", expanded=False):
-                            prob_rows = []
-                            for k, v in probs.items():
-                                m = EMOTION_META.get(k.lower(), {"kannada": k, "emoji": ""})
-                                prob_rows.append({"Emotion": f"{m['emoji']} {m['kannada']} ({k.title()})", "Confidence (%)": round(v, 2)})
-                            p_df = pd.DataFrame(prob_rows).sort_values(by="Confidence (%)", ascending=False)
-                            st.dataframe(
-                                p_df.style.bar(subset=["Confidence (%)"], color=meta["color"], vmin=0, vmax=100),
-                                use_container_width=True,
-                                hide_index=True,
-                            )
-            except Exception as exc:
-                st.error(f"Prediction failed: {exc}")
+            if not results:
+                st.warning("The model didn't return anything for this sentence.")
+                return
+            st.markdown(result_card_html(results[0]), unsafe_allow_html=True)
+        except Exception as exc:  # pragma: no cover - UI feedback
+            st.error(f"Something went wrong: {exc}")
 
 
-def render_batch_section(agent: Optional[PredictionAgent]) -> None:
+def section_heading(anchor: str, eyebrow: str, title: str, lead: str) -> None:
     """
-    Render batch spreadsheet scoring for Excel files.
+    Render a lower-section heading that the top bar links can jump to.
     """
-    st.markdown("### 📂 Batch File Scoring")
-    st.caption("Upload an Excel (`.xlsx`) or CSV file containing a `kannada_text` column.")
-
-    uploaded_file = st.file_uploader(
-        "Upload dataset (.xlsx, .csv)",
-        type=["xlsx", "csv"],
-        accept_multiple_files=False,
+    st.markdown(
+        f"<div class='section' id='{anchor}'><p class='eyebrow'>{eyebrow}</p>"
+        f"<h2>{title}</h2><p class='lead'>{lead}</p></div>",
+        unsafe_allow_html=True,
     )
 
-    if uploaded_file is not None:
-        if agent is None:
-            st.error("Model agent not ready. Please verify models exist.")
+
+def batch_prediction_section() -> None:
+    """
+    Render the batch prediction interface for uploaded Excel files.
+    """
+    section_heading(
+        "excel",
+        "Excel file",
+        "Check a whole spreadsheet at once",
+        "Put your sentences in a column named <code>kannada_text</code>. You'll get the same "
+        "rows back with a feeling next to each one.",
+    )
+
+    uploaded_file = st.file_uploader("Excel file (.xlsx)", type=["xlsx"], accept_multiple_files=False)
+
+    if uploaded_file is None or not model_required():
+        return
+
+    try:
+        df = pd.read_excel(uploaded_file)
+        if "kannada_text" not in df.columns:
+            st.error("This file has no `kannada_text` column. Rename the column with your sentences and try again.")
+            return
+
+        texts = df["kannada_text"].astype(str).tolist()
+        agent: PredictionAgent = st.session_state["prediction_agent"]
+        with st.spinner(f"Reading {len(texts)} sentences..."):
+            results = agent.predict_texts(texts)
+        if not results:
+            st.warning("The model didn't return anything for this file.")
+            return
+
+        results_df = pd.DataFrame(results)
+
+        def style_sentiment(val: str) -> str:
+            color = get_sentiment_color(str(val))
+            return f"color: {color}; font-weight: 600;"
+
+        styler = results_df.style
+        if hasattr(styler, "map"):
+            styled = styler.map(style_sentiment, subset=["sentiment"])
         else:
-            try:
-                if uploaded_file.name.endswith(".csv"):
-                    df = pd.read_csv(uploaded_file)
-                else:
-                    df = pd.read_excel(uploaded_file)
+            styled = styler.applymap(style_sentiment, subset=["sentiment"])
 
-                if "kannada_text" not in df.columns:
-                    st.error("Uploaded file must contain a `kannada_text` column.")
-                else:
-                    texts = df["kannada_text"].astype(str).tolist()
-                    with st.spinner(f"Scoring {len(texts)} Kannada sentences..."):
-                        results = agent.predict_texts(texts)
+        top_col, btn_col = st.columns([3, 1], vertical_alignment="center")
+        counts = results_df["sentiment"].value_counts()
+        count_chips = "".join(feeling_chip(str(label), f"<b>{n}</b>") for label, n in counts.items())
+        top_col.markdown(
+            f"<p style='margin:0 0 8px'><b>{len(results_df)} sentences done.</b></p>"
+            f"<div class='chips'>{count_chips}</div>",
+            unsafe_allow_html=True,
+        )
 
-                    if results:
-                        results_df = pd.DataFrame(results)
+        buffer = BytesIO()
+        results_df.to_excel(buffer, index=False)
+        buffer.seek(0)
+        btn_col.download_button(
+            "Download results",
+            data=buffer,
+            file_name="predictions.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            type="primary",
+            use_container_width=True,
+        )
 
-                        def style_sentiment(val: str) -> str:
-                            color = get_sentiment_color(str(val))
-                            return f"background-color: {color}; color: #ffffff; font-weight: 600;"
-
-                        styler = results_df.style
-                        if hasattr(styler, "map"):
-                            styled = styler.map(style_sentiment, subset=["sentiment"])
-                        else:
-                            styled = styler.applymap(style_sentiment, subset=["sentiment"])
-
-                        st.write("Preview of Predictions:")
-                        st.dataframe(styled, use_container_width=True)
-
-                        buffer = BytesIO()
-                        results_df.to_excel(buffer, index=False)
-                        buffer.seek(0)
-
-                        st.download_button(
-                            "📥 Download predictions.xlsx",
-                            data=buffer,
-                            file_name="bhavaspandana_predictions.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            type="primary",
-                            use_container_width=True,
-                        )
-            except Exception as exc:
-                st.error(f"Batch prediction error: {exc}")
+        st.dataframe(
+            styled,
+            use_container_width=True,
+            column_config={
+                "confidence": st.column_config.NumberColumn("confidence", format="%.1f%%"),
+            },
+        )
+    except Exception as exc:  # pragma: no cover - UI feedback
+        st.error(f"Couldn't read this file: {exc}")
 
 
-def render_diagnostics_section() -> None:
+def metrics_section() -> None:
     """
-    Render confusion matrix heatmap and classification report.
+    Render how the model works, its confusion matrix and classification report.
     """
-    st.markdown("### 📊 Model Performance & Diagnostics")
-    st.caption("Evaluation results on the 488-sample held-out test split.")
+    section_heading(
+        "how",
+        "How it works",
+        "Two models, one answer",
+        "<b>MuRIL</b>, a BERT model trained on Indian languages, and a <b>TF-IDF</b> word model "
+        "each read the sentence and guess through logistic regression. Their guesses are combined, "
+        "with MuRIL counting for 65% and TF-IDF for 35%. It was trained on Kannada social media "
+        "text labelled into six feelings. Below is how it did on sentences it hadn't seen during "
+        "training.",
+    )
 
     cm_path = os.path.join(ROOT_DIR, "artifacts", "confusion_matrix.png")
     cr_path = os.path.join(ROOT_DIR, "artifacts", "classification_report.csv")
 
-    col_cm, col_cr = st.columns([1.3, 1])
+    cols = st.columns([1.3, 1], gap="large")
 
-    with col_cm:
+    with cols[0]:
+        st.markdown("**Where it gets confused**")
         if os.path.exists(cm_path):
-            st.image(
-                cm_path,
-                caption="BhavaSpandana AI — Confusion Matrix Heatmap",
-                use_container_width=True,
-            )
+            st.image(cm_path, use_container_width=True)
         else:
-            st.info("Confusion matrix image not found. Run `python train.py` to generate it.")
+            st.info("No confusion matrix yet. Train the model first with `python train.py`.")
 
-    with col_cr:
+    with cols[1]:
+        st.markdown("**Scores for each feeling**")
         if os.path.exists(cr_path):
             try:
                 cr_df = pd.read_csv(cr_path)
-                st.markdown("**Per-Class Classification Report:**")
                 numeric_cols = ["precision", "recall", "f1-score", "support"]
-                style = cr_df.style.background_gradient(
-                    cmap="Blues",
-                    subset=[c for c in numeric_cols if c in cr_df.columns],
+                present = [c for c in numeric_cols if c in cr_df.columns]
+                # support is a row count, except on the "accuracy" row where it holds the score
+                style = cr_df.style.background_gradient(cmap="Blues", subset=present).format(
+                    lambda v: f"{v:.3f}" if v < 1.5 else f"{v:.0f}", subset=present
                 )
-                st.dataframe(style, use_container_width=True)
-            except Exception as exc:
-                st.error(f"Error loading classification report: {exc}")
+                st.dataframe(style, use_container_width=True, hide_index=True)
+            except Exception as exc:  # pragma: no cover - UI feedback
+                st.error(f"Couldn't load the scores: {exc}")
         else:
-            st.info("Classification report not found. Run `python train.py` to generate it.")
+            st.info("No scores yet. They're created when you train the model.")
 
 
-def sidebar(agent: Optional[PredictionAgent]) -> None:
+def footer_section() -> None:
     """
-    Render the left glass rail sidebar.
+    Render a small closing line.
     """
-    with st.sidebar:
-        st.markdown("### 🌸 BhavaSpandana AI")
-        st.markdown("*(ಭಾವಸ್ಪಂದನ AI)*")
-        st.markdown(
-            """
-**Model Type**  
-Hybrid **MuRIL BERT** (65%) + **TF-IDF** (35%)  
-Logistic Regression Ensemble
-
-**Classes Supported**  
-Happy · Sad · Anger · Fear · Disgust · Neutral
-
-**Unicode Support**  
-U+0C80–U+0CFF (Kannada Script)
-"""
-        )
-        st.markdown("---")
-        st.markdown("#### ⚡ Status")
-        if agent is not None:
-            st.success("🟢 **Model Active**")
-            st.caption(f"Inference Device: `{agent.device}`")
-        else:
-            st.error("🔴 **Models Not Loaded**")
-
-        if st.button("🔄 Reload Cache", use_container_width=True):
-            st.cache_resource.clear()
-            st.rerun()
-
-        st.markdown("---")
-        st.caption("Crafted for Kannada NLP & Emotion Intelligence.")
+    st.markdown(
+        "<div class='footer'><span>ಭಾವಸ್ಪಂದನ · BhavaSpandana</span>"
+        "<span>Kannada sentiment analysis with MuRIL + TF-IDF</span></div>",
+        unsafe_allow_html=True,
+    )
 
 
 def main() -> None:
     """
-    Main Glass Iris Chat Dashboard entry point.
+    Render the full Streamlit page for Kannada Sentiment Analysis.
     """
-    agent = get_prediction_agent()
-
-    sidebar(agent)
-    render_shell_header(agent)
-
-    # Segmented Mode Switcher
-    selected_mode = st.radio(
-        "Navigation Mode",
-        options=["💬 Chat & Realtime", "📂 Batch Scoring", "📊 Diagnostics & Benchmarks"],
-        horizontal=True,
-        label_visibility="collapsed",
-    )
-
-    if selected_mode == "💬 Chat & Realtime":
-        render_hero_orb()
-        render_composer_section(agent)
-        render_quick_action_cards()
-
-    elif selected_mode == "📂 Batch Scoring":
-        render_batch_section(agent)
-
-    elif selected_mode == "📊 Diagnostics & Benchmarks":
-        render_diagnostics_section()
+    nav_section()
+    hero_section()
+    single_prediction_section()
+    batch_prediction_section()
+    metrics_section()
+    footer_section()
 
 
 if __name__ == "__main__":

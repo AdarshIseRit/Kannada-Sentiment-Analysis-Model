@@ -2,3 +2,14 @@
 headless = true
 port = 8501
 enableCORS = false
+
+[theme]
+base = "light"
+primaryColor = "#1C1917"
+backgroundColor = "#FAFAF7"
+secondaryBackgroundColor = "#F0EEE9"
+textColor = "#1C1917"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
