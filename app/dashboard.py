@@ -17,7 +17,7 @@ from agents.prediction_agent import PredictionAgent  # noqa: E402
 
 
 st.set_page_config(
-    page_title="Kannada Sentiment AI",
+    page_title="BhavaSpandana AI - Kannada Sentiment",
     layout="wide",
     page_icon="🌸",
 )
@@ -147,10 +147,13 @@ def sidebar() -> None:
     Render sidebar with project information and model loading controls.
     """
     with st.sidebar:
-        st.title("About this Project")
+        st.title("About BhavaSpandana AI")
         st.markdown(
             """
-**Model Type**  
+**Model Name**  
+🌸 **BhavaSpandana AI (ಭಾವಸ್ಪಂದನ)**
+
+**Architecture**  
 Hybrid **MuRIL BERT** + **TF-IDF**  
 Logistic Regression Ensemble
 
@@ -175,12 +178,12 @@ def header_section() -> None:
     Render the main header and KPI metrics.
     """
     st.markdown(
-        "<h1 style='text-align:center; color:#F9FAFB; font-weight:800;'>Kannada Sentiment Analysis </h1>",
+        "<h1 style='text-align:center; color:#F9FAFB; font-weight:800;'>ಭಾವಸ್ಪಂದನ (BhavaSpandana AI)</h1>",
         unsafe_allow_html=True,
     )
     st.markdown(
-        "<p style='text-align:center; color:#E5E7EB; font-size:0.95rem;'>"
-        "Hybrid MuRIL BERT + TF-IDF | 93%+ Accuracy"
+        "<p style='text-align:center; color:#E5E7EB; font-size:1.05rem;'>"
+        "Kannada Sentiment Analysis | Hybrid MuRIL BERT + TF-IDF"
         "</p>",
         unsafe_allow_html=True,
     )
@@ -191,7 +194,7 @@ def header_section() -> None:
             """
             <div class="card metric-card">
               <div class="metric-label">Accuracy</div>
-              <div class="metric-value">93%</div>
+              <div class="metric-value">96.5%</div>
               <div class="metric-subtext">On held-out Kannada validation</div>
             </div>
             """,
@@ -202,8 +205,8 @@ def header_section() -> None:
             """
             <div class="card metric-card">
               <div class="metric-label">Model</div>
-              <div class="metric-value">MuRIL + TF-IDF</div>
-              <div class="metric-subtext">Soft-voting logistic regression</div>
+              <div class="metric-value">BhavaSpandana AI</div>
+              <div class="metric-subtext">MuRIL + TF-IDF Soft-Voting</div>
             </div>
             """,
             unsafe_allow_html=True,
