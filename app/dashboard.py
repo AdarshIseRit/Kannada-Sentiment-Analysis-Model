@@ -19,7 +19,7 @@ from agents.prediction_agent import PredictionAgent  # noqa: E402
 st.set_page_config(
     page_title="Kannada Sentiment AI",
     layout="wide",
-    page_icon="a",
+    page_icon="🌸",
 )
 
 
