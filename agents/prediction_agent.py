@@ -58,7 +58,7 @@ class PredictionAgent:
 
         print("[PredictionAgent] Loading MuRIL tokenizer and model")
         self.tokenizer = AutoTokenizer.from_pretrained("google/muril-base-cased")
-        self.model = AutoModel.from_pretrained("google/muril-base-cased", torch_dtype=torch.float32)
+        self.model = AutoModel.from_pretrained("google/muril-base-cased", dtype=torch.float32)
         self.model.to(self.device)
         self.model.eval()
 
@@ -89,7 +89,7 @@ class PredictionAgent:
     def _extract_muril_embeddings(
         self,
         texts: List[str],
-        batch_size: int = 2,
+        batch_size: int = 16,
         max_length: int = 64,
     ) -> np.ndarray:
         """
@@ -167,7 +167,7 @@ class PredictionAgent:
         tfidf_features = self.tfidf_vectorizer.transform(cleaned_texts)
 
         print("[PredictionAgent] Extracting MuRIL embeddings for prediction")
-        muril_embeddings = self._extract_muril_embeddings(cleaned_texts, batch_size=2, max_length=64)
+        muril_embeddings = self._extract_muril_embeddings(cleaned_texts, batch_size=16, max_length=64)
 
         print("[PredictionAgent] Computing probabilities from both models")
         proba_tfidf = self.model_tfidf.predict_proba(tfidf_features)
@@ -176,16 +176,19 @@ class PredictionAgent:
         avg_proba = (0.35 * proba_tfidf) + (0.65 * proba_muril)
         pred_indices = np.argmax(avg_proba, axis=1)
         pred_labels = self.label_encoder.inverse_transform(pred_indices)
+        class_names = list(self.label_encoder.classes_)
 
         results: List[Dict[str, object]] = []
         for original, cleaned, label, probs in zip(texts, cleaned_texts, pred_labels, avg_proba):
             confidence = float(np.max(probs) * 100.0)
+            prob_dict = {cls_name: float(p * 100.0) for cls_name, p in zip(class_names, probs)}
             results.append(
                 {
                     "text": original,
                     "cleaned": cleaned,
                     "sentiment": str(label),
                     "confidence": confidence,
+                    "probabilities": prob_dict,
                 }
             )
 

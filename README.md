@@ -1,16 +1,16 @@
-# KannadaSentiment – Hybrid MuRIL + TF-IDF Kannada Emotion Detection
+# ಭಾವಸ್ಪಂದನ (BhavaSpandana AI) – Hybrid MuRIL + TF-IDF Kannada Emotion Detection
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
 ![Streamlit](https://img.shields.io/badge/Streamlit-Deployed-red.svg)
 ![Status](https://img.shields.io/badge/Status-Active-success.svg)
 
-> 🚀 A hybrid MuRIL + TF-IDF based emotion detection system for Kannada text,
-> capable of classifying six emotions (happy, sad, anger, fear, disgust, neutral)
-> through an interactive Streamlit web interface.
+> 🌸 **ಭಾವಸ್ಪಂದನ (BhavaSpandana AI)**: A hybrid MuRIL + TF-IDF based emotion detection system for Kannada text,
+> capable of classifying six emotions (ಸಂತೋಷ / happy, ದುಃಖ / sad, ಕೋಪ / anger, ಭಯ / fear, ಅಸಹ್ಯ / disgust, ತಟಸ್ಥ / neutral)
+> through an interactive Streamlit web interface with **96.52% accuracy**.
 
-KannadaSentiment is an end-to-end emotion detection system for Kannada text.
-It combines modern transformer-based language understanding with classical
-machine learning to accurately classify six human emotions from natural language input.
+**ಭಾವಸ್ಪಂದನ (BhavaSpandana AI)** is an end-to-end emotion detection system for Kannada text.
+It combines modern transformer-based language understanding (Google MuRIL) with classical
+machine learning (Sublinear Character TF-IDF) to accurately classify six human emotions from natural language input.
 
 ---
 
@@ -235,23 +235,15 @@ This creates `artifacts/sentiment_report.pdf` containing a cover page, project o
 
 ---
 
-## Git LFS & Large Model Files
+## Model Artifacts & Deployment
 
-Model artifacts in `models/` are binary `*.pkl` files. This repository uses **Git LFS** to store them efficiently:
+The trained classification artifacts in `models/` are compact binary `*.pkl` files (< 1 MB total):
+- `model_muril.pkl` – Logistic regression classifier on 768-dimensional MuRIL embeddings (~19 KB)
+- `model_tfidf.pkl` – Logistic regression classifier on character TF-IDF features (~480 KB)
+- `tfidf_vectorizer.pkl` – Character n-gram vectorizer (~398 KB)
+- `label_encoder.pkl` – Label encoder mapping the 6 Kannada emotions (~500 B)
 
-- The `.gitattributes` file includes:
-
-  ```gitattributes
-  *.pkl filter=lfs diff=lfs merge=lfs -text
-  ```
-
-- To push new model commits:
-
-  ```bash
-  git add .gitattributes models/*.pkl
-  git commit -m "Add trained Kannada sentiment models"
-  git push origin main
-  ```
+Because the serialized models are lightweight, they are tracked directly in Git for zero-friction deployment on **Streamlit Community Cloud** or any cloud VM without requiring external storage buckets or LFS bandwidth limits.
 
 ---
 
