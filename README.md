@@ -160,8 +160,7 @@ After training (so that the `models/` directory is populated), start the UI:
 streamlit run app/dashboard.py
 ```
 
-Once started, the dashboard will be available at:  
-[http://localhost:8501](http://localhost:8501)
+Once started, Streamlit will automatically launch the dashboard in your default web browser (or output the local server URL in your terminal).
 
 > ⚡ **Note:** On the first run, the MuRIL model will be downloaded automatically. This may take a minute depending on your internet connection.
 
