@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="90" alt="BhavaSpandana Logo" />
+</p>
+
 # ಭಾವಸ್ಪಂದನ (BhavaSpandana AI) – Hybrid MuRIL + TF-IDF Kannada Emotion Detection
 
 ![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)
@@ -63,7 +67,7 @@ streamlit run app/dashboard.py
 - 📊 Batch prediction from Excel files with prediction downloads.
 - 📈 Training pipeline with evaluation metrics and confusion matrix generation.
 - 📄 Automatic PDF report generation.
-- 💾 Git LFS support for large trained model artifacts.
+- 💾 Pre-trained models included for instant zero-setup inference.
 
 ---
 
@@ -82,7 +86,7 @@ streamlit run app/dashboard.py
 - `generate_report.py` – generates a multi-page PDF report in `artifacts/`.
 - `requirements.txt` – Python dependencies required to run the project.
 - `artifacts/` – evaluation outputs (`confusion_matrix.png`, `classification_report.csv`, `sentiment_report.pdf`).
-- `models/` – saved model artifacts (`*.pkl`, tracked via Git LFS).
+- `models/` – saved model artifacts (`*.pkl`, pre-trained ensemble models).
 - `assets/` – screenshots and preview visual assets.
 
 ---
@@ -91,7 +95,6 @@ streamlit run app/dashboard.py
 
 - Python **3.10** or newer
 - Git
-- Git LFS *(required only if you want to download or version-control the trained model artifacts)*
 
 **Recommended Hardware:**
 - 8 GB RAM minimum
@@ -101,7 +104,7 @@ streamlit run app/dashboard.py
 
 ## Setup & Installation
 
-From the `KannadaSentiment/` directory:
+From the `Kannada-Sentiment-Analysis-Model/` directory:
 
 1. **Create and activate a virtual environment** (optional but recommended):
 
